@@ -1,6 +1,9 @@
+import prisma from "../lib/prisma.js";
+import jwt from "jsonwebtoken";
 
 export const getPosts = async (req, res) => {
   const query = req.query;
+
   try {
     const posts = await prisma.post.findMany({
       where: {
@@ -22,7 +25,6 @@ export const getPosts = async (req, res) => {
     console.log(err);
     res.status(500).json({ message: "Failed to get posts" });
   }
-  console.log("getPosts endpoint");
 };
 
 export const getPost = async (req, res) => {
