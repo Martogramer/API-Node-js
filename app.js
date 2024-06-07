@@ -9,7 +9,7 @@ import testRoute from "./routes/test.route.js";
 const app = express();
 
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: 'https://intemplate-dp.vercel.app/',
   credentials: true, 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Especifica los métodos HTTP permitidos
   allowedHeaders: ['Content-Type', 'Authorization'], // Especifica los encabezados permitidos
