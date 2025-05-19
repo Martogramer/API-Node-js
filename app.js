@@ -1,30 +1,21 @@
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
-import postRoute from "./routes/post.route.js";
-import authRoute from "./routes/auth.route.js";
-import userRoute from "./routes/user.route.js";
-import testRoute from "./routes/test.route.js";
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import userRoutes from './routes/user.route.js';
+import authRoutes from './routes/auth.route.js';
+
 
 const app = express();
 
-app.use(cors({
-  origin: 'https://intemplate-dp.vercel.app/',
-  credentials: true, 
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Especifica los métodos HTTP permitidos
-  allowedHeaders: ['Content-Type', 'Authorization'], // Especifica los encabezados permitidos
-}));
+app.use(cors());
 app.use(express.json());
-app.use(cookieParser());
+app.use(morgan('dev'));
 
+app.use('/api/users', userRoutes);
+app.use('/api/auth', authRoutes)
 
-app.use("/api/auth", authRoute);
-app.use("/api/posts", postRoute); 
-app.use("/api/users", userRoute);
-//app.use("/api/chats", chatRoute);
-app.use("/api/test", testRoute);
-//app.use("/api/messages", messageRoute);
-
-app.listen(3000, () => {
-  console.log("Escuchando");
+app.get('/', (req, res) => {
+  res.send('API de gestión de turnos - Clínica');
 });
+
+export default app;
