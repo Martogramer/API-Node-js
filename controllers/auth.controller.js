@@ -1,49 +1,71 @@
-import User from '../models/User.js'
-import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
+// controllers/authController.js
+import { pool } from '../config/db.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
-export const register = async (req, res) => {
-  try {
-    const { name, email, password, role, specialty } = req.body
-
-    const exists = await User.findOne({ email })
-    if (exists) return res.status(400).json({ message: 'Email ya registrado' })
-
-    const hash = await bcrypt.hash(password, 10)
-    const user = new User({ name, email, password: hash, role, specialty })
-    await user.save()
-
-    res.status(201).json({ message: 'Usuario registrado' })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-}
+//login user
 
 export const login = async (req, res) => {
+  const { email, password } = req.body;
+
   try {
-    const { email, password } = req.body
+    const result = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
+    const user = result.rows[0];
 
-    const user = await User.findOne({ email })
-    if (!user) return res.status(400).json({ message: 'Credenciales inválidas' })
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
 
-    const match = await bcrypt.compare(password, user.password)
-    if (!match) return res.status(400).json({ message: 'Credenciales inválidas' })
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Contraseña incorrecta' });
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: '1d'
-    })
+    // 🔹 Obtener los roles desde user_roles y roles
+    const rolesResult = await pool.query(`
+      SELECT r.name
+      FROM user_roles ur
+      JOIN roles r ON ur.role_id = r.id
+      WHERE ur.user_id = $1
+    `, [user.id]);
 
-    res.json({ token, user: { id: user._id, name: user.name, role: user.role } })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
+    const roles = rolesResult.rows.map(r => r.name);
+
+    // 🔹 Incluir roles en el token
+    const token = jwt.sign(
+      { userId: user.id, roles }, 
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    
+    res.json({ token });
+  } catch (error) {
+    console.error('Error en login:', error);
+    res.status(500).json({ message: 'Error en el servidor' });
   }
-}
+};
 
-export const logout = async (req, res) => {
+// register user 
+export const registerUser = async (req, res) => {
+  const { username, email, password } = req.body;
+
   try {
-    // El cliente debería borrar el token del lado del frontend
-    res.json({ message: "Sesión cerrada exitosamente" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Validar si ya existe el usuario
+    const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (userExists.rows.length > 0) {
+      return res.status(400).json({ error: 'User already exists with that email' });
+    }
+
+    // Hashear contraseña
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insertar nuevo usuario
+    const newUser = await pool.query(
+      `INSERT INTO users (username, email, password)
+       VALUES ($1, $2, $3)
+       RETURNING id, username, email, created_at`,
+      [username, email, hashedPassword]
+    );
+
+    res.status(201).json({ message: 'User registered successfully', user: newUser.rows[0] });
+  } catch (error) {
+    console.error('Error registering user:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
