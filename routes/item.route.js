@@ -5,7 +5,7 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-router.post('/items', createItem);
+router.post('/items', authenticateToken, createItem);
 
 router.get('/items/assigned', authenticateToken, getAssignedItems);
 

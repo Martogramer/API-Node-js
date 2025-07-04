@@ -2,18 +2,46 @@
 import { pool } from "../config/db.js";
 
 export const createBudget = async (req, res) => {
-  const { name, created_by, period_start, period_end } = req.body;
+  const { name, period_start, period_end } = req.body;
 
-  if (!name || !created_by || !period_start || !period_end) {
+  // Validar campos requeridos (el created_by se saca del token)
+  if (!name || !period_start || !period_end) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
   try {
+    const requesterId = req.user.userId;
+
+    // Verificar que el usuario tenga rol "analyst"
+    const roleResult = await pool.query(
+      `
+      SELECT r.name FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.id = $1
+    `,
+      [requesterId]
+    );
+
+    if (roleResult.rows.length === 0) {
+      return res
+        .status(403)
+        .json({ error: "Unauthorized: invalid requester role" });
+    }
+
+    const requesterRole = roleResult.rows[0].name;
+
+    if (requesterRole !== "analyst") {
+      return res
+        .status(403)
+        .json({ error: 'Only users with role "analyst" can create budgets' });
+    }
+
+    // Crear el presupuesto
     const result = await pool.query(
       `INSERT INTO budgets (name, created_by, period_start, period_end, status, created_at)
        VALUES ($1, $2, $3, $4, false, NOW())
        RETURNING *`,
-      [name, created_by, period_start, period_end]
+      [name, requesterId, period_start, period_end]
     );
 
     res.status(201).json(result.rows[0]);
@@ -24,22 +52,85 @@ export const createBudget = async (req, res) => {
 };
 
 export const createBudgetVersion = async (req, res) => {
-  const { budget_id, created_by, version_number } = req.body;
+  const { budget_id, name } = req.body;
+  const requesterId = req.user.userId;
+
+  if (!budget_id) {
+    return res.status(400).json({ error: "Missing required field: budget_id" });
+  }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO versions (budget_id, created_by, version_number, created_at)
-       VALUES ($1, $2, $3, NOW())
-       RETURNING *`,
-      [budget_id, created_by, version_number]
+    // Verificar rol analyst
+    const roleResult = await pool.query(`
+      SELECT r.name FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.id = $1
+    `, [requesterId]);
+
+    const requesterRole = roleResult.rows[0]?.name;
+    if (requesterRole !== "analyst") {
+      return res.status(403).json({ error: "Only analysts can create versions" });
+    }
+
+    // Obtener el número de versión más alto actual para ese budget
+    const versionResult = await pool.query(`
+      SELECT COALESCE(MAX(version_number), 0) AS last_version
+      FROM versions
+      WHERE budget_id = $1
+    `, [budget_id]);
+
+    const nextVersionNumber = versionResult.rows[0].last_version + 1;
+
+    const versionName = name || `Version ${new Date().toISOString().slice(0, 10)}`;
+
+    const result = await pool.query(`
+      INSERT INTO versions (budget_id, created_by, version_number, name, created_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      RETURNING *`,
+      [budget_id, requesterId, nextVersionNumber, versionName]
     );
 
     res.status(201).json(result.rows[0]);
+
   } catch (err) {
     console.error("Error creating version:", err);
     res.status(500).json({ error: "Error creating version" });
   }
 };
+
+// En budgetsController.js
+export const getBudgetVersions = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const versionsQuery = `
+            SELECT bv.*, u.id AS created_by_id, u.name AS created_by_name
+            FROM budget_versions bv
+            LEFT JOIN users u ON bv.created_by = u.id
+            WHERE bv.budget_id = $1
+            ORDER BY version_number DESC
+        `;
+        const result = await pool.query(versionsQuery, [budget_id]);
+
+        const versions = result.rows.map((v) => ({
+            id: v.id,
+            version_number: v.version_number,
+            created_at: v.created_at,
+            state: v.state,
+            created_by: {
+                id: v.created_by_id,
+                name: v.created_by_name,
+            },
+            items: [] // solo si querés traerlos ahora
+        }));
+
+        res.json(versions);
+    } catch (error) {
+        console.error("Error getting versions:", error);
+        res.status(500).json({ error: "Error retrieving versions" });
+    }
+};
+
 
 export const getBudgetsHierarchy = async (req, res) => {
   try {
@@ -58,7 +149,9 @@ export const getBudgetsHierarchy = async (req, res) => {
     v.created_at AS version_created_at,
     uv.id AS version_user_id,
     uv.username AS version_user_name,
-
+    v.state AS version_state,
+    i.state AS item_state,
+    i.type AS item_type,
     i.id AS item_id,
     i.name AS item_name,
     i.zona,
@@ -118,6 +211,7 @@ export const getBudgetsHierarchy = async (req, res) => {
           id: vId,
           version_number: row.version_number,
           created_at: row.version_created_at,
+          state: row.version_state,
           created_by: { id: row.version_user_id, name: row.version_user_name },
           items: [],
         };
@@ -133,6 +227,7 @@ export const getBudgetsHierarchy = async (req, res) => {
           producto: row.producto,
           regional: row.regional,
           bp: row.bp,
+          state: row.item_state,
           tributariedad: row.tributariedad,
           modalidad: row.modalidad,
           editor: { id: row.editor_id, name: row.editor_name },

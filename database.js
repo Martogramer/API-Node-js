@@ -1,4 +1,4 @@
-import { createConnection } from "promise-mysql";
+/* import { createConnection } from "promise-mysql";
 import { config } from "dotenv";
 config();
 
@@ -13,4 +13,4 @@ const getConnectionMySql = async ()=> await connectionMySql;
 
 export default {
   getConnectionMySql
-}
+} */

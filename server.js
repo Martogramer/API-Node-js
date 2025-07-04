@@ -9,7 +9,9 @@ import userRoutes from './routes/user.route.js';
 import authRoutes from './routes/auth.route.js';
 import versionRoutes from './routes/versions.route.js';
 import budgetRoutes from './routes/budget.route.js';
+import forecastsRoutes from './routes/forecasts.route.js';
 import itemRoutes from './routes/item.route.js';
+import approvalRoutes from './routes/approval.route.js';
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -26,7 +28,9 @@ app.get('/', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/versions', versionRoutes);
-app.use('/api', budgetRoutes);
+app.use('/api/budgets', budgetRoutes);
+app.use('/api/forecasts', forecastsRoutes);
+app.use('/api/approvals', approvalRoutes);
 app.use('/api', itemRoutes);
 
 async function testConnectionVerbose() {
