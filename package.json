@@ -1,34 +1,43 @@
 {
   "name": "back",
   "version": "1.0.0",
-  "description": "",
+  "description": "API REST en Node.js + Express para automatizar análisis SEO y auditorías con SEMrush",
   "main": "app.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "start": "node server.js"
   },
-  "keywords": [],
+  "keywords": [
+    "express",
+    "nodejs",
+    "api",
+    "semrush",
+    "seo",
+    "automation"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.7.7",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
-    "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
     "joi": "^17.13.3",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.16.0",
     "mongoose": "^8.15.0",
-    "pg": "^8.16.0"
+    "morgan": "^1.10.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.2",
     "@types/morgan": "^1.9.9",
-    "morgan": "^1.10.0",
     "nodemon": "^3.1.10"
   }
 }
